@@ -245,7 +245,7 @@
                 });
             });
 
-            // ตรวจอัตนัยทีละข้อ เพื่อไม่ให้ API Limit เกิน (ส่งผ่าน Promise แบบทยอย)
+            // ตรวจอัตนัยทีละข้อ
             let essayResults = [];
             for (const q of exam.essay) {
                 const userAnswer = formData.get(q.id);
@@ -265,23 +265,18 @@
         }
 
         // ==========================================
-        // จุดเชื่อมต่อ AI API (ใช้ Gemini API จริง)
+        // จุดเชื่อมต่อ AI API
         // ==========================================
         async function gradeEssayWithAI(question, answer) {
-            // !! ใส่ API Key ของคุณในเครื่องหมายคำพูดด้านล่างนี้ !!
-            const apiKey = "AQ.Ab8RN6KTEUVP6Ns8qyLtEwVTmN4QruN2tYi6eaUEStnyiX16oA"; 
+            // ใช้คีย์ที่คุณได้รับมาโดยตรง
+            const apiKey = "AQ.Ab8RN6LCq8yBHwjtk6oNKCEgeRu9Snv0rA_f3oRt5edawvSdTQ"; 
             
-            // ตรวจสอบเบื้องต้น
             if (!answer || answer.trim() === "") {
                 return { score: 0, feedback: "นักเรียนไม่ได้ส่งคำตอบ" };
-            }
-            if (apiKey === "ใส่_API_KEY_ของคุณที่นี่" || apiKey === "") {
-                return { score: 0, feedback: "กรุณาใส่ API Key ของ Gemini ใน Source Code ก่อนเพื่อใช้งานระบบตรวจข้อเขียน" };
             }
 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-            // กำหนดคำสั่ง (Prompt) ให้ Gemini
             const prompt = `
             จงรับบทเป็นครูตรวจข้อสอบวิทยาศาสตร์ ตรวจคำตอบอัตนัยของนักเรียนตามข้อมูลต่อไปนี้
             คำถาม: ${question}
@@ -291,7 +286,7 @@
             
             คุณต้องตอบกลับมาเป็นรูปแบบโครงสร้าง JSON เท่านั้น (ห้ามพิมพ์ข้อความอื่นนอกเหนือจาก JSON) รูปแบบดังนี้:
             {
-              "score": ตัวเลขคะแนน (0-10),
+              "score": ตัวเลขคะแนน,
               "feedback": "คำอธิบายเหตุผลของคุณ..."
             }
             `;
@@ -303,29 +298,36 @@
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
                         generationConfig: {
-                            responseMimeType: "application/json" // บังคับให้คืนค่า JSON
+                            responseMimeType: "application/json"
                         }
                     })
                 });
 
+                const data = await response.json();
+
+                // ถ้าระบบของ Google ปฏิเสธคีย์นี้ ให้นำข้อความ Error ของ Google มาแสดงบนจอ
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    console.error("รายละเอียด Error จาก Google:", data);
+                    return {
+                        score: 0,
+                        feedback: `ระบบของ Google แจ้งว่า: ${data.error?.message || 'ปฏิเสธการเชื่อมต่อ'} (Status: ${data.error?.status || response.status})`
+                    };
                 }
 
-                const data = await response.json();
+                // ถ้าคีย์ผ่านและประมวลผลสำเร็จ
                 const textResult = data.candidates[0].content.parts[0].text;
                 const resultObj = JSON.parse(textResult);
                 
                 return {
-                    score: resultObj.score,
-                    feedback: resultObj.feedback
+                    score: resultObj.score || 0,
+                    feedback: resultObj.feedback || "ประมวลผลสำเร็จ"
                 };
 
             } catch (error) {
-                console.error("Gemini API Error:", error);
+                console.error("System Error:", error);
                 return {
                     score: 0,
-                    feedback: "เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI หรือ API Key ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง"
+                    feedback: `ไม่สามารถส่งคำขอได้: ${error.message}`
                 };
             }
         }
