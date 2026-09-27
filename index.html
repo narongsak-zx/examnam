@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบทดสอบจำลองวิทยาศาสตร์</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .hidden-section { display: none; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-left-color: #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold cursor-pointer" onclick="showSection('home')"><i class="fas fa-flask mr-2"></i> SciExam Mockup</h1>
+            <div>
+                <button onclick="showSection('history')" class="hover:bg-blue-700 px-3 py-2 rounded text-sm transition"><i class="fas fa-history mr-1"></i> ประวัติการสอบ</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto p-4 mt-6">
+        
+        <!-- Section: Home (Select Exam) -->
+        <div id="home" class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2">เลือกชุดข้อสอบ</h2>
+            <p class="text-gray-600 mb-6">กรุณาเลือกชุดข้อสอบวิทยาศาสตร์ที่คุณต้องการทดสอบ (ปรนัย 10 ข้อ, อัตนัย 8 ข้อ)</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="exam-list">
+                <!-- Exam buttons will be generated here -->
+            </div>
+        </div>
+
+        <!-- Section: Exam Interface -->
+        <div id="exam-area" class="hidden-section bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 id="exam-title" class="text-2xl font-bold text-blue-600">ชุดข้อสอบ</h2>
+                <button onclick="showSection('home')" class="text-gray-500 hover:text-red-500"><i class="fas fa-times"></i> ยกเลิก</button>
+            </div>
+            
+            <form id="exam-form" onsubmit="submitExam(event)">
+                <div id="mcq-container" class="mb-8">
+                    <h3 class="text-xl font-semibold mb-4 bg-gray-100 p-2 rounded">ตอนที่ 1: ปรนัย (เลือกคำตอบที่ถูกที่สุด)</h3>
+                    <div id="mcq-questions"></div>
+                </div>
+
+                <div id="essay-container" class="mb-8">
+                    <h3 class="text-xl font-semibold mb-4 bg-gray-100 p-2 rounded">ตอนที่ 2: อัตนัย (เติมคำตอบ/อธิบาย)</h3>
+                    <div id="essay-questions"></div>
+                </div>
+
+                <div class="text-center mt-8">
+                    <button type="submit" id="submit-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition transform hover:scale-105">
+                        <i class="fas fa-paper-plane mr-2"></i> ส่งข้อสอบ
+                    </button>
+                    <div id="loading-indicator" class="hidden mt-4 text-blue-600 font-semibold">
+                        <div class="spinner mr-2 align-middle"></div> กำลังให้ AI ตรวจข้อเขียน...
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Section: Results -->
+        <div id="result-area" class="hidden-section bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-3xl font-bold text-center mb-2">ผลการสอบ</h2>
+            <div class="text-center mb-8">
+                <p class="text-xl">คะแนนปรนัย: <span id="mcq-score" class="font-bold text-blue-600 text-2xl"></span> / <span id="mcq-total" class="text-gray-600 text-xl"></span></p>
+                <p class="text-gray-500 text-sm mt-2">(ข้อเขียนได้รับการประเมินโดย AI ด้านล่าง)</p>
+            </div>
+
+            <div id="result-details" class="space-y-6">
+                <!-- Result details will be generated here -->
+            </div>
+
+            <div class="text-center mt-8">
+                <button onclick="showSection('home')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition">กลับหน้าแรก</button>
+            </div>
+        </div>
+
+        <!-- Section: History -->
+        <div id="history" class="hidden-section bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold">ประวัติการสอบ</h2>
+                <button onclick="clearHistory()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition"><i class="fas fa-trash-alt mr-1"></i> ล้างประวัติทั้งหมด</button>
+            </div>
+            
+            <div id="history-list" class="space-y-3">
+                <!-- History items will be generated here -->
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // ==========================================
+        // ข้อมูลข้อสอบ (Database จำลอง)
+        // ==========================================
+        const exams = {
+            "set-1": {
+                title: "วิทยาศาสตร์ ชุดที่ 1 (ธรณีวิทยาและสภาพภูมิอากาศ)",
+                mcq: [
+                    { id: "m1", text: "ข้อใดเรียงลำดับช่วงเวลาทางธรณีวิทยาจากเก่าไปใหม่ได้ถูกต้อง", options: ["Cenozoic → Mesozoic → Paleozoic → Precambrian", "Precambrian → Paleozoic → Mesozoic → Cenozoic", "Paleozoic → Precambrian → Cenozoic → Mesozoic", "Mesozoic → Paleozoic → Precambrian → Cenozoic"], correct: 1, explanation: "มหายุค Precambrian เก่าแก่ที่สุด ตามด้วย Paleozoic, Mesozoic และ Cenozoic (ยุคปัจจุบัน)" },
+                    { id: "m2", text: "ช่วงเวลาใดมีระยะเวลายาวนานที่สุดในประวัติศาสตร์โลก", options: ["Paleozoic", "Mesozoic", "Cenozoic", "Precambrian"], correct: 3, explanation: "Precambrian กินเวลาประมาณ 88% ของประวัติศาสตร์โลกทั้งหมด (ตั้งแต่โลกกำเนิดจนถึงเมื่อ 541 ล้านปีก่อน)" },
+                    { id: "m3", text: "ข้อใดกล่าวถึง Mesozoic ได้ถูกต้อง", options: ["ยุคของสัตว์เลี้ยงลูกด้วยนมและมนุษย์", "ยุคที่ไดโนเสาร์และสัตว์เลื้อยคลานมีความโดดเด่น", "ช่วงเริ่มต้นของการเกิดโลก", "ช่วงที่ไม่มีสิ่งมีชีวิต"], correct: 1, explanation: "Mesozoic เป็นมหายุคที่รู้จักกันในนาม 'ยุคของไดโนเสาร์' หรือสัตว์เลื้อยคลาน" },
+                    { id: "m4", text: "ข้อใดเป็นหลักฐานสำคัญในการศึกษาสิ่งมีชีวิตและสภาพแวดล้อมในอดีต", options: ["ฟอสซิล", "เมฆ", "แสงแดด", "ลม"], correct: 0, explanation: "ฟอสซิล (ซากดึกดำบรรพ์) เป็นร่องรอยของสิ่งมีชีวิตในอดีตที่ถูกเก็บรักษาไว้ในชั้นหิน" },
+                    { id: "m5", text: "หากต้องการหาอายุของตัวอย่างที่มีอายุไม่เกินประมาณ 50,000 ปี วิธีใดเหมาะสมตามเนื้อหา", options: ["C-14", "U-Pb", "Magnetometer", "Gravimeter"], correct: 0, explanation: "การหาอายุด้วยคาร์บอนกัมมันตรังสี (C-14) เหมาะสำหรับสิ่งมีชีวิตที่มีอายุไม่เกิน 50,000 - 60,000 ปี" },
+                    { id: "m6", text: "แก๊สใดมีแหล่งกำเนิดสำคัญจากการเผาไหม้เชื้อเพลิงฟอสซิลและการตัดไม้ทำลายป่า", options: ["CO₂", "CH₄", "SF₆", "NF₃"], correct: 0, explanation: "คาร์บอนไดออกไซด์ (CO₂) เกิดจากการเผาไหม้เชื้อเพลิงฟอสซิลและพฤติกรรมการทำลายป่า" },
+                    { id: "m7", text: "ข้อใดเป็นแหล่งกำเนิดของ CH₄ ตามเนื้อหา", options: ["การเกษตรและปศุสัตว์", "อุปกรณ์วัดสนามแม่เหล็ก", "การเคลื่อนที่ของแผ่นธรณีภาค", "การสลายตัวของแร่โลหะเท่านั้น"], correct: 0, explanation: "มีเทน (CH₄) ส่วนใหญ่มาจากการทำนาข้าว การปศุสัตว์ (การย่อยอาหารของสัตว์เคี้ยวเอื้อง) และการฝังกลบขยะ" },
+                    { id: "m8", text: "ข้อใดเป็นผลกระทบที่เกี่ยวข้องกับการเพิ่มขึ้นของแก๊สเรือนกระจก", options: ["อุณหภูมิโลกลดลง", "น้ำแข็งขั้วโลกละลายและระดับน้ำทะเลสูงขึ้น", "อายุของโลกสั้นลง", "สนามแม่เหล็กโลกหายไป"], correct: 1, explanation: "ภาวะเรือนกระจกทำให้อุณหภูมิโลกสูงขึ้น ส่งผลให้น้ำแข็งขั้วโลกละลายและระดับน้ำทะเลสูงขึ้น" },
+                    { id: "m9", text: "ข้อตกลงปารีสมีเป้าหมายสำคัญเกี่ยวกับเรื่องใด", options: ["การลดแผ่นดินไหว", "การควบคุมระดับอุณหภูมิโลกจากการเปลี่ยนแปลงสภาพภูมิอากาศ", "การสำรวจชั้นหิน", "การป้องกันภูเขาไฟระเบิด"], correct: 1, explanation: "ข้อตกลงปารีส (Paris Agreement) มีเป้าหมายจำกัดการเพิ่มขึ้นของอุณหภูมิเฉลี่ยโลกไม่ให้เกิน 1.5 - 2 องศาเซลเซียส" },
+                    { id: "m10", text: "หากต้องศึกษาการเปลี่ยนแปลงอุณหภูมิในช่วง 10 ปี วิธีใดเหมาะสมที่สุด", options: ["ใช้ข้อมูลเพียงปีเดียว", "รวบรวมข้อมูลย้อนหลังและสร้างกราฟเพื่อดูแนวโน้ม", "ใช้ความคิดเห็นแทนข้อมูล", "ดูเฉพาะค่าที่สูงที่สุด"], correct: 1, explanation: "การวิเคราะห์แนวโน้มที่ถูกต้องคือการนำข้อมูลทางสถิติย้อนหลังหลายๆ ปีมาพล็อตเป็นกราฟเพื่อดูทิศทางการเปลี่ยนแปลง" }
+                ],
+                essay: [
+                    { id: "e1", text: "อธิบายความแตกต่างระหว่าง Relative dating (การหาอายุเปรียบเทียบ) และ Absolute dating (การหาอายุสัมบูรณ์)" },
+                    { id: "e2", text: "อธิบายความสำคัญของฟอสซิลต่อการศึกษาประวัติของโลก" },
+                    { id: "e3", text: "สรุปลักษณะสำคัญของ Precambrian, Paleozoic, Mesozoic และ Cenozoic อย่างย่อ" },
+                    { id: "e4", text: "อธิบายความหมายของแผ่นธรณีภาคและผลที่เกิดจากการเคลื่อนที่ของแผ่นธรณีภาค" },
+                    { id: "e5", text: "ยกตัวอย่างแก๊สเรือนกระจกอย่างน้อย 4 ชนิด พร้อมระบุแหล่งกำเนิด" },
+                    { id: "e6", text: "อธิบายผลกระทบสำคัญของแก๊สเรือนกระจกต่อโลกมาพอสังเขป" },
+                    { id: "e7", text: "ยกตัวอย่างวิธีลดการปล่อยแก๊สเรือนกระจกอย่างน้อย 3 วิธี" },
+                    { id: "e8", text: "หากมีข้อมูลอุณหภูมิย้อนหลัง 10 ปี นักศึกษาจะนำข้อมูลดังกล่าวมาวิเคราะห์แนวโน้มอย่างไร" }
+                ]
+            },
+            "set-2": {
+                title: "วิทยาศาสตร์ ชุดที่ 2 (ดาราศาสตร์เบื้องต้น)",
+                mcq: [{ id: "m1", text: "ตัวอย่างข้อสอบข้อที่ 1", options: ["ก", "ข", "ค", "ง"], correct: 0, explanation: "เหตุผลจำลอง" }],
+                essay: [{ id: "e1", text: "ตัวอย่างข้อเขียนที่ 1" }]
+            },
+            "set-3": {
+                title: "วิทยาศาสตร์ ชุดที่ 3 (ระบบนิเวศและสิ่งแวดล้อม)",
+                mcq: [{ id: "m1", text: "ตัวอย่างข้อสอบข้อที่ 1", options: ["ก", "ข", "ค", "ง"], correct: 0, explanation: "เหตุผลจำลอง" }],
+                essay: [{ id: "e1", text: "ตัวอย่างข้อเขียนที่ 1" }]
+            }
+        };
+
+        let currentExamId = null;
+
+        // ==========================================
+        // การจัดการ UI และ Navigation
+        // ==========================================
+        function showSection(sectionId) {
+            document.querySelectorAll('main > div').forEach(div => div.classList.add('hidden-section'));
+            document.getElementById(sectionId).classList.remove('hidden-section');
+            window.scrollTo(0, 0);
+
+            if (sectionId === 'home') renderExamMenu();
+            if (sectionId === 'history') renderHistory();
+        }
+
+        function renderExamMenu() {
+            const list = document.getElementById('exam-list');
+            list.innerHTML = '';
+            for (const [id, data] of Object.entries(exams)) {
+                list.innerHTML += `
+                    <div class="border rounded-lg p-5 hover:shadow-lg transition bg-gray-50 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-lg mb-2 text-blue-700">${data.title}</h3>
+                            <p class="text-sm text-gray-600 mb-4">ปรนัย ${data.mcq.length} ข้อ | อัตนัย ${data.essay.length} ข้อ</p>
+                        </div>
+                        <button onclick="startExam('${id}')" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">เริ่มทำข้อสอบ</button>
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // ระบบจัดการข้อสอบ (Render & Logic)
+        // ==========================================
+        function startExam(id) {
+            currentExamId = id;
+            const exam = exams[id];
+            document.getElementById('exam-title').innerText = exam.title;
+            
+            // Render MCQ
+            const mcqContainer = document.getElementById('mcq-questions');
+            mcqContainer.innerHTML = exam.mcq.map((q, index) => `
+                <div class="mb-6 bg-gray-50 p-4 rounded border">
+                    <p class="font-medium mb-3">${index + 1}. ${q.text}</p>
+                    <div class="space-y-2 pl-4">
+                        ${q.options.map((opt, i) => `
+                            <label class="flex items-start cursor-pointer">
+                                <input type="radio" name="${q.id}" value="${i}" class="mt-1 mr-2 cursor-pointer" required>
+                                <span>${['ก', 'ข', 'ค', 'ง'][i]}. ${opt}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            // Render Essay
+            const essayContainer = document.getElementById('essay-questions');
+            essayContainer.innerHTML = exam.essay.map((q, index) => `
+                <div class="mb-6 bg-gray-50 p-4 rounded border">
+                    <p class="font-medium mb-2">${index + 1}. ${q.text}</p>
+                    <textarea name="${q.id}" rows="4" class="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="พิมพ์คำตอบของคุณที่นี่..." required></textarea>
+                </div>
+            `).join('');
+
+            document.getElementById('submit-btn').classList.remove('hidden');
+            document.getElementById('loading-indicator').classList.add('hidden');
+            document.getElementById('exam-form').reset();
+            
+            showSection('exam-area');
+        }
+
+        async function submitExam(event) {
+            event.preventDefault();
+            
+            // UI Update (Loading)
+            const submitBtn = document.getElementById('submit-btn');
+            const loadingInd = document.getElementById('loading-indicator');
+            submitBtn.classList.add('hidden');
+            loadingInd.classList.remove('hidden');
+
+            const formData = new FormData(event.target);
+            const exam = exams[currentExamId];
+            
+            let resultData = {
+                examId: currentExamId,
+                title: exam.title,
+                date: new Date().toLocaleString('th-TH'),
+                mcq: { score: 0, total: exam.mcq.length, details: [] },
+                essay: { details: [] }
+            };
+
+            // 1. ตรวจข้อสอบปรนัย (ทำงานทันที)
+            exam.mcq.forEach(q => {
+                const userAnswer = parseInt(formData.get(q.id));
+                const isCorrect = userAnswer === q.correct;
+                if (isCorrect) resultData.mcq.score++;
+                
+                resultData.mcq.details.push({
+                    question: q.text,
+                    userAnswerText: q.options[userAnswer],
+                    correctAnswerText: q.options[q.correct],
+                    isCorrect: isCorrect,
+                    explanation: q.explanation
+                });
+            });
+
+            // 2. ตรวจข้อสอบอัตนัย (ผ่าน AI Integration)
+            // ใช้ Promise.all เพื่อจำลองการส่งข้อมูลทีละข้อหรือส่งรวดเดียว (ใน API จริงอาจส่งรวดเดียวเพื่อประหยัด Token)
+            const essayPromises = exam.essay.map(async (q) => {
+                const userAnswer = formData.get(q.id);
+                // **จุดเชื่อม API ของคุณ**
+                const aiFeedback = await gradeEssayWithAI(q.text, userAnswer);
+                return {
+                    question: q.text,
+                    userAnswer: userAnswer,
+                    feedback: aiFeedback.feedback,
+                    score: aiFeedback.score // สมมติคะแนน 0-10
+                };
+            });
+
+            resultData.essay.details = await Promise.all(essayPromises);
+
+            // บันทึกลง LocalStorage
+            saveToHistory(resultData);
+
+            // แสดงผล
+            renderResult(resultData);
+        }
+
+        // ==========================================
+        // จุดเชื่อมต่อ AI API (AI Integration Point)
+        // ==========================================
+        async function gradeEssayWithAI(question, answer) {
+            // TODO: แทนที่โค้ดส่วนนี้ด้วย Fetch API เพื่อเชื่อมต่อไปยัง Backend หรือ AI API ของคุณ (เช่น OpenAI, Gemini)
+            /*
+            ตัวอย่างการเรียก API จริง:
+            const response = await fetch('AQ.Ab8RN6KTEUVP6Ns8qyLtEwVTmN4QruN2tYi6eaUEStnyiX16oA', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer YOUR_KEY' },
+                body: JSON.stringify({
+                    prompt: `จงตรวจคำตอบต่อไปนี้:\nคำถาม: ${question}\nคำตอบ: ${answer}\n\nให้คะแนน (0-10) และบอกเหตุผลว่าทำไมตอบแบบนี้ถึงถูกหรือผิด`
+                })
+            });
+            const data = await response.json();
+            return { score: data.score, feedback: data.feedback };
+            */
+
+            // ระบบจำลอง (Mock Delay 1-2 วินาทีเพื่อให้ดูเหมือนมีการประมวลผลจริง)
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        score: Math.floor(Math.random() * 10) + 1, // สุ่มคะแนนจำลอง
+                        feedback: `(นี่คือข้อความจำลองจาก AI) ระบบประเมินแล้วว่าคำตอบนี้มีความเกี่ยวโยงกับคำถาม แต่อาจขาดรายละเอียดที่ครบถ้วน เหตุผลที่คุณตอบแบบนี้แสดงให้เห็นถึงความเข้าใจเบื้องต้น แต่ยังต้องเสริมเรื่องความถูกต้องของเนื้อหาเชิงลึกครับ`
+                    });
+                }, 1500);
+            });
+        }
+
+        // ==========================================
+        // ระบบประมวลผลหลังการสอบ (Results & History)
+        // ==========================================
+        function renderResult(data) {
+            document.getElementById('mcq-score').innerText = data.mcq.score;
+            document.getElementById('mcq-total').innerText = data.mcq.total;
+
+            const container = document.getElementById('result-details');
+            let html = '';
+
+            // Section ปรนัย
+            html += `<h3 class="text-xl font-bold bg-gray-100 p-2 rounded mt-6">เฉลยตอนที่ 1: ปรนัย</h3>`;
+            data.mcq.details.forEach((item, index) => {
+                const color = item.isCorrect ? 'text-green-600' : 'text-red-500';
+                const icon = item.isCorrect ? '<i class="fas fa-check-circle"></i>' : '<i class="fas fa-times-circle"></i>';
+                
+                html += `
+                    <div class="border rounded p-4 ${item.isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                        <p class="font-medium mb-2">${index + 1}. ${item.question}</p>
+                        <p class="mb-1 text-gray-700">คำตอบของคุณ: <span class="${color} font-semibold">${icon} ${item.userAnswerText}</span></p>
+                        ${!item.isCorrect ? `<p class="mb-1 text-gray-700">คำตอบที่ถูกต้อง: <span class="text-green-600 font-semibold">${item.correctAnswerText}</span></p>` : ''}
+                        <div class="mt-3 bg-white p-3 rounded text-sm text-gray-600 border border-gray-200">
+                            <strong><i class="fas fa-lightbulb text-yellow-500"></i> คำอธิบาย:</strong> ${item.explanation}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Section อัตนัย
+            html += `<h3 class="text-xl font-bold bg-gray-100 p-2 rounded mt-8">การประเมินตอนที่ 2: อัตนัย (ตรวจโดย AI)</h3>`;
+            data.essay.details.forEach((item, index) => {
+                html += `
+                    <div class="border rounded p-4 border-blue-200 bg-blue-50">
+                        <p class="font-medium mb-2">${index + 1}. ${item.question}</p>
+                        <div class="bg-white p-3 rounded border mb-3">
+                            <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">คำตอบของคุณ:</span><br>
+                            <span class="text-gray-800">${item.userAnswer}</span>
+                        </div>
+                        <div class="bg-indigo-900 text-white p-4 rounded-lg shadow-inner">
+                            <div class="flex justify-between items-center mb-2 border-b border-indigo-700 pb-2">
+                                <span class="font-bold"><i class="fas fa-robot text-blue-300"></i> AI Feedback</span>
+                                <span class="bg-blue-500 px-2 py-1 rounded text-sm">คะแนน: ${item.score} / 10</span>
+                            </div>
+                            <p class="text-indigo-100 text-sm leading-relaxed">${item.feedback}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            showSection('result-area');
+        }
+
+        function saveToHistory(data) {
+            let history = JSON.parse(localStorage.getItem('sciExamHistory')) || [];
+            history.unshift(data); // เอาอันใหม่สุดไว้บน
+            localStorage.setItem('sciExamHistory', JSON.stringify(history));
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            let history = JSON.parse(localStorage.getItem('sciExamHistory')) || [];
+
+            if (history.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-gray-500">ยังไม่มีประวัติการสอบ</div>`;
+                return;
+            }
+
+            container.innerHTML = history.map((item, index) => `
+                <div class="border p-4 rounded hover:bg-gray-50 flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-blue-700">${item.title}</h4>
+                        <p class="text-sm text-gray-500"><i class="far fa-clock"></i> ${item.date}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-lg text-green-600">${item.mcq.score}/${item.mcq.total}</div>
+                        <div class="text-xs text-gray-500">คะแนนปรนัย</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if (confirm('คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการสอบทั้งหมด? ข้อมูลที่บันทึกไว้จะหายไปอย่างถาวร')) {
+                localStorage.removeItem('sciExamHistory');
+                renderHistory();
+            }
+        }
+
+        // Initialize หน้าแรกเมื่อโหลดเสร็จ
+        window.onload = () => showSection('home');
+    </script>
+</body>
+</html>
