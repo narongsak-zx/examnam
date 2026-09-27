@@ -61,8 +61,8 @@
                     <button type="submit" id="submit-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition transform hover:scale-105">
                         <i class="fas fa-paper-plane mr-2"></i> ส่งข้อสอบ
                     </button>
-                    <div id="loading-indicator" class="hidden mt-4 text-blue-600 font-semibold">
-                        <div class="spinner mr-2 align-middle"></div> กำลังให้ AI ตรวจข้อเขียน...
+                    <div id="loading-indicator" class="hidden mt-4 text-blue-600 font-semibold flex items-center justify-center">
+                        <div class="spinner mr-2"></div> กำลังให้ AI ตรวจข้อเขียน (อาจใช้เวลา 5-15 วินาที)...
                     </div>
                 </div>
             </form>
@@ -130,12 +130,12 @@
                 ]
             },
             "set-2": {
-                title: "วิทยาศาสตร์ ชุดที่ 2 (ดาราศาสตร์เบื้องต้น)",
+                title: "วิทยาศาสตร์ ชุดที่ 2 (เตรียมข้อมูลเพิ่มในภายหลัง)",
                 mcq: [{ id: "m1", text: "ตัวอย่างข้อสอบข้อที่ 1", options: ["ก", "ข", "ค", "ง"], correct: 0, explanation: "เหตุผลจำลอง" }],
                 essay: [{ id: "e1", text: "ตัวอย่างข้อเขียนที่ 1" }]
             },
             "set-3": {
-                title: "วิทยาศาสตร์ ชุดที่ 3 (ระบบนิเวศและสิ่งแวดล้อม)",
+                title: "วิทยาศาสตร์ ชุดที่ 3 (เตรียมข้อมูลเพิ่มในภายหลัง)",
                 mcq: [{ id: "m1", text: "ตัวอย่างข้อสอบข้อที่ 1", options: ["ก", "ข", "ค", "ง"], correct: 0, explanation: "เหตุผลจำลอง" }],
                 essay: [{ id: "e1", text: "ตัวอย่างข้อเขียนที่ 1" }]
             }
@@ -214,7 +214,6 @@
         async function submitExam(event) {
             event.preventDefault();
             
-            // UI Update (Loading)
             const submitBtn = document.getElementById('submit-btn');
             const loadingInd = document.getElementById('loading-indicator');
             submitBtn.classList.add('hidden');
@@ -231,7 +230,7 @@
                 essay: { details: [] }
             };
 
-            // 1. ตรวจข้อสอบปรนัย (ทำงานทันที)
+            // ตรวจปรนัย
             exam.mcq.forEach(q => {
                 const userAnswer = parseInt(formData.get(q.id));
                 const isCorrect = userAnswer === q.correct;
@@ -246,60 +245,93 @@
                 });
             });
 
-            // 2. ตรวจข้อสอบอัตนัย (ผ่าน AI Integration)
-            // ใช้ Promise.all เพื่อจำลองการส่งข้อมูลทีละข้อหรือส่งรวดเดียว (ใน API จริงอาจส่งรวดเดียวเพื่อประหยัด Token)
-            const essayPromises = exam.essay.map(async (q) => {
+            // ตรวจอัตนัยทีละข้อ เพื่อไม่ให้ API Limit เกิน (ส่งผ่าน Promise แบบทยอย)
+            let essayResults = [];
+            for (const q of exam.essay) {
                 const userAnswer = formData.get(q.id);
-                // **จุดเชื่อม API ของคุณ**
                 const aiFeedback = await gradeEssayWithAI(q.text, userAnswer);
-                return {
+                essayResults.push({
                     question: q.text,
                     userAnswer: userAnswer,
                     feedback: aiFeedback.feedback,
-                    score: aiFeedback.score // สมมติคะแนน 0-10
-                };
-            });
+                    score: aiFeedback.score
+                });
+            }
+            resultData.essay.details = essayResults;
 
-            resultData.essay.details = await Promise.all(essayPromises);
-
-            // บันทึกลง LocalStorage
+            // บันทึกและแสดงผล
             saveToHistory(resultData);
-
-            // แสดงผล
             renderResult(resultData);
         }
 
         // ==========================================
-        // จุดเชื่อมต่อ AI API (AI Integration Point)
+        // จุดเชื่อมต่อ AI API (ใช้ Gemini API จริง)
         // ==========================================
         async function gradeEssayWithAI(question, answer) {
-            // TODO: แทนที่โค้ดส่วนนี้ด้วย Fetch API เพื่อเชื่อมต่อไปยัง Backend หรือ AI API ของคุณ (เช่น OpenAI, Gemini)
-            /*
-            ตัวอย่างการเรียก API จริง:
-            const response = await fetch('AQ.Ab8RN6KTEUVP6Ns8qyLtEwVTmN4QruN2tYi6eaUEStnyiX16oA', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer YOUR_KEY' },
-                body: JSON.stringify({
-                    prompt: `จงตรวจคำตอบต่อไปนี้:\nคำถาม: ${question}\nคำตอบ: ${answer}\n\nให้คะแนน (0-10) และบอกเหตุผลว่าทำไมตอบแบบนี้ถึงถูกหรือผิด`
-                })
-            });
-            const data = await response.json();
-            return { score: data.score, feedback: data.feedback };
-            */
+            // !! ใส่ API Key ของคุณในเครื่องหมายคำพูดด้านล่างนี้ !!
+            const apiKey = "AQ.Ab8RN6KTEUVP6Ns8qyLtEwVTmN4QruN2tYi6eaUEStnyiX16oA"; 
+            
+            // ตรวจสอบเบื้องต้น
+            if (!answer || answer.trim() === "") {
+                return { score: 0, feedback: "นักเรียนไม่ได้ส่งคำตอบ" };
+            }
+            if (apiKey === "ใส่_API_KEY_ของคุณที่นี่" || apiKey === "") {
+                return { score: 0, feedback: "กรุณาใส่ API Key ของ Gemini ใน Source Code ก่อนเพื่อใช้งานระบบตรวจข้อเขียน" };
+            }
 
-            // ระบบจำลอง (Mock Delay 1-2 วินาทีเพื่อให้ดูเหมือนมีการประมวลผลจริง)
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({
-                        score: Math.floor(Math.random() * 10) + 1, // สุ่มคะแนนจำลอง
-                        feedback: `(นี่คือข้อความจำลองจาก AI) ระบบประเมินแล้วว่าคำตอบนี้มีความเกี่ยวโยงกับคำถาม แต่อาจขาดรายละเอียดที่ครบถ้วน เหตุผลที่คุณตอบแบบนี้แสดงให้เห็นถึงความเข้าใจเบื้องต้น แต่ยังต้องเสริมเรื่องความถูกต้องของเนื้อหาเชิงลึกครับ`
-                    });
-                }, 1500);
-            });
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            // กำหนดคำสั่ง (Prompt) ให้ Gemini
+            const prompt = `
+            จงรับบทเป็นครูตรวจข้อสอบวิทยาศาสตร์ ตรวจคำตอบอัตนัยของนักเรียนตามข้อมูลต่อไปนี้
+            คำถาม: ${question}
+            คำตอบของนักเรียน: ${answer}
+            
+            กรุณาประเมินให้คะแนนเต็ม 10 คะแนน และอธิบายเหตุผลอย่างละเอียดว่าทำไมถึงให้คะแนนเท่านี้ ตอบถูกเพราะอะไร หรือผิด/ขาดตกบกพร่องตรงไหน 
+            
+            คุณต้องตอบกลับมาเป็นรูปแบบโครงสร้าง JSON เท่านั้น (ห้ามพิมพ์ข้อความอื่นนอกเหนือจาก JSON) รูปแบบดังนี้:
+            {
+              "score": ตัวเลขคะแนน (0-10),
+              "feedback": "คำอธิบายเหตุผลของคุณ..."
+            }
+            `;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json" // บังคับให้คืนค่า JSON
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const textResult = data.candidates[0].content.parts[0].text;
+                const resultObj = JSON.parse(textResult);
+                
+                return {
+                    score: resultObj.score,
+                    feedback: resultObj.feedback
+                };
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                return {
+                    score: 0,
+                    feedback: "เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI หรือ API Key ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง"
+                };
+            }
         }
 
         // ==========================================
-        // ระบบประมวลผลหลังการสอบ (Results & History)
+        // ระบบแสดงผลหลังการสอบ (Results & History)
         // ==========================================
         function renderResult(data) {
             document.getElementById('mcq-score').innerText = data.mcq.score;
@@ -353,7 +385,7 @@
 
         function saveToHistory(data) {
             let history = JSON.parse(localStorage.getItem('sciExamHistory')) || [];
-            history.unshift(data); // เอาอันใหม่สุดไว้บน
+            history.unshift(data);
             localStorage.setItem('sciExamHistory', JSON.stringify(history));
         }
 
@@ -387,7 +419,6 @@
             }
         }
 
-        // Initialize หน้าแรกเมื่อโหลดเสร็จ
         window.onload = () => showSection('home');
     </script>
 </body>
